@@ -1,5 +1,7 @@
 # LXPEN
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20366383.svg)](https://doi.org/10.5281/zenodo.20366383)
+
 **Layered Exploration Password Engine** — NTLM hash cracker powered by **Hierarchical Probabilistic Decomposition (HPD)**.
 
 > *"Don't crack the password. Crack the idea."*  
