@@ -2,7 +2,7 @@ name: lxpen
 version: 0.5.0
 
 authors:
-  - Azizcan Dastan <past3l>
+  - Azizcan Dastan <azqzazq1>
 
 description: |
   Hash cracker (NTLM/MD5/SHA-256) using Hierarchical Probabilistic Decomposition (HPD).

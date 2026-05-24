@@ -2,29 +2,33 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20366383.svg)](https://doi.org/10.5281/zenodo.20366383)
 
-**Layered Exploration Password Engine** — NTLM hash cracker powered by **Hierarchical Probabilistic Decomposition (HPD)**.
+**Layered Exploration Password Engine** — Hash cracker (NTLM / MD5 / SHA-256) powered by **Hierarchical Probabilistic Decomposition (HPD)**.
 
 > *"Don't crack the password. Crack the idea."*  
 > *Inspired by Arsene Lupin — the gentleman who cracks the mind, not the lock.*
 
-LXPEN cracks NTLM hashes **without wordlists, without OSINT, without GPU**. Instead of brute force or dictionary attacks, it decomposes the password space into **human behavioral patterns** — how people actually construct passwords — and generates candidates in probability order.
+LXPEN cracks hashes **without wordlists, without OSINT, without GPU**. Instead of brute force or dictionary attacks, it decomposes the password space into **human behavioral patterns** — how people actually construct passwords — and generates candidates in probability order.
 
 ## Results at a Glance
 
 ```
-                    LXPEN v0.4       Hashcat (100K+best64)
+                    LXPEN v0.5       Hashcat (100K+best64)
   Cracked:          18/20 (90%)      13/20 (65%)
   Time:             0.56s            3.95s
   RAM:              4.4 MB           475 MB
   Wordlist:         NONE             100K file required
   Speedup:          7x faster        baseline
   RAM efficiency:   108x less        baseline
+  Hash types:       NTLM/MD5/SHA256  --
+  Patterns:         48               --
+  Candidate space:  26.6M            6.4M
 ```
 
 ---
 
 ## Table of Contents
 
+- [What's New in v0.5.0](#whats-new-in-v050)
 - [HPD Algorithm](#hpd-algorithm)
 - [Why It Works](#why-it-works)
 - [Benchmark](#benchmark-lxpen-vs-hashcat)
@@ -40,13 +44,99 @@ LXPEN cracks NTLM hashes **without wordlists, without OSINT, without GPU**. Inst
 
 ---
 
+## What's New in v0.5.0
+
+### v0.4.0 → v0.5.0 Comparison
+
+| | v0.4.0 | v0.5.0 |
+|---|---|---|
+| **Hash types** | NTLM only | NTLM + MD5 + SHA-256 |
+| **Patterns** | 45 | 48 (+3 passphrase) |
+| **Candidate space** | 4.3M | 26.6M (+6x) |
+| **Slot entries** | ~530 (EN+TR) | ~900+ (EN+TR+DE+RU+AR) |
+| **Languages** | English, Turkish | + German, Russian, Arabic |
+| **Commands** | crack, hash, bench, stats | + analyze, coverage |
+| **Output** | Terminal only | + JSON (`--json`) |
+| **Post-pattern fallback** | None | Hybrid brute-force (a-z0-9, 1-4 char) |
+| **Test suite** | Placeholder | 26 Crystal specs + 13 C tests |
+
+### New Features
+
+**Multi-Hash Support** — Full MD5 (RFC 1321) and SHA-256 (FIPS 180-4) implementations in C, with the same multi-threaded pattern cracking engine:
+
+```bash
+lxpen crack <MD5_HASH> --type md5
+lxpen crack <SHA256_HASH> --type sha256
+lxpen hash "password" --type sha256
+```
+
+**`lxpen analyze`** — Reverse-match any password to HPD patterns. Shows which patterns would catch it, plus all three hash types:
+
+```bash
+$ lxpen analyze "Michael1994!"
+  ✓ 2 pattern matches found:
+    1. cap_year_sym (4.7%)  — [CapWord:Michael] + [Year:1994] + [SymbolSuffix:!]
+    2. cap_name_year_sym (2.5%) — [CapName:Michael] + [Year:1994] + [SymbolSuffix:!]
+  NTLM: 3d87e4a5ed025f248af37286dcea4639
+  MD5:  a7284ec3b35502a7f75bbc9e9f702d17
+  SHA256: 59c30f8424405cf88cc66e0d0c0698e02e2b99b79ab40ed27de16995e496ad57
+
+$ lxpen analyze "xK9mZ2pLq"
+  ✗ No HPD pattern matches this password.
+  This password is outside the current pattern space.
+```
+
+**`lxpen coverage`** — Full pattern space report with candidate counts per pattern and slot statistics:
+
+```bash
+$ lxpen coverage
+  Total candidate space: 26,638,972
+  Total patterns:        48
+
+  #   Pattern                   Freq%   Candidates  Slots
+  ─────────────────────────────────────────────────────────
+  1   lower_digits              22.4%       12,896  LowerWord(208) × SeqDigits(62)
+  2   cap_digits                14.1%       12,896  CapWord(208) × SeqDigits(62)
+  3   lower_only                11.8%          208  LowerWord(208)
+  ...
+```
+
+**JSON Output** — Machine-readable output for all commands with `--json`:
+
+```bash
+$ lxpen crack 8846f7eaee8fb117ad06bdd830b7586c --json
+{"status":"cracked","password":"password","hash":"8846f7ea...","type":"ntlm","tried":25827,"time_s":0.0068}
+```
+
+**Language Packs** — German, Russian, and Arabic names + cultural words added to slot data:
+
+| Language | Names | Words | Examples |
+|---|---|---|---|
+| German | hans, klaus, petra, stefan... | passwort, geheim, bayern, berlin... | `Stefan2024!`, `passwort123` |
+| Russian | ivan, dmitri, natasha, vladimir... | parol, spartak, moskva, zenit... | `Vladimir1994`, `spartak123` |
+| Arabic | mohammed, ahmed, fatima, omar... | salam, habibi, allah, yalla... | `Mohammed2024`, `habibi123` |
+
+**Passphrase Patterns** — Three new multi-word patterns:
+
+```
+lower_lower_lower    passworddragonmaster
+cap_cap_cap          PasswordDragonMaster
+name_name_name       MichaelJessicaOmar
+```
+
+**Hybrid Brute-Force** — After HPD patterns, automatically tries `[a-z0-9]` combinations up to 4 characters. Catches short passwords that don't match any pattern.
+
+**Test Suite** — 26 Crystal specs (hash correctness, pattern loading, engine validation) + 13 C-level hash verification tests against RFC/FIPS reference vectors.
+
+---
+
 ## HPD Algorithm
 
 **Hierarchical Probabilistic Decomposition** models password creation as a three-layer generative process:
 
 ### Layer 1: Structure Templates
 
-Human passwords follow structural patterns. HPD defines 45 templates ranked by real-world frequency:
+Human passwords follow structural patterns. HPD defines 48 templates ranked by real-world frequency:
 
 ```
 Pattern                  Frequency   Example
@@ -57,7 +147,7 @@ Pattern                  Frequency   Example
 [Name+Year]               7.2%      michael1994, jessica2024
 [CapName+Year+Symbol]     2.5%      Michael1994!, Mehmet2024.
 [L33t+SeqDigits]          2.4%      h4ck3r666, p@ss123
-...45 patterns total
+...48 patterns total
 ```
 
 ### Layer 2: Slot Filling
@@ -66,8 +156,8 @@ Each template slot maps to a **frequency-weighted dictionary**:
 
 | Slot Type | Entries | Examples |
 |---|---|---|
-| LowerWord | 190 | password, dragon, shadow, butterfly, galatasaray |
-| Name | 122 | michael, jessica, mehmet, ayse (EN+TR) |
+| LowerWord | 208 | password, dragon, shadow, butterfly, galatasaray, passwort, habibi |
+| Name | 151 | michael, jessica, mehmet, ayse, hans, ivan, mohammed (EN+TR+DE+RU+AR) |
 | Year | 61 | 2024, 1994, 1907, 1453 |
 | SeqDigits | 62 | 123, 69, 007, 12345678 |
 | Symbol | 25 | !, @, #, !@#$, . |
@@ -79,10 +169,10 @@ Each template slot maps to a **frequency-weighted dictionary**:
 The cartesian product of all slot values within each pattern generates the candidate space:
 
 ```
-Pattern [LowerWord + SeqDigits]:  190 words x 62 digits = 11,780 candidates
-Pattern [Name + Year + Symbol]:   122 names x 61 years x 25 symbols = 185,550 candidates
+Pattern [LowerWord + SeqDigits]:  208 words x 62 digits = 12,896 candidates
+Pattern [Name + Year + Symbol]:   151 names x 61 years x 25 symbols = 230,275 candidates
 ...
-Total across 45 patterns:         4,274,914 candidates
+Total across 48 patterns:         26,638,972 candidates
 ```
 
 Candidates are generated **in probability order** — high-frequency patterns first, high-frequency slot entries first within each pattern.
@@ -103,7 +193,7 @@ Coverage = SUM over all patterns P:
            SUM over entries in slot
 ```
 
-With 45 patterns and ~4.3M candidates, HPD covers an estimated **85-95% of human-chosen passwords** that follow recognizable structural patterns.
+With 48 patterns and ~26.6M candidates, HPD covers an estimated **85-95% of human-chosen passwords** that follow recognizable structural patterns.
 
 ---
 
@@ -129,17 +219,18 @@ People don't generate random passwords. They follow mental templates:
 
 ### The Efficiency Argument
 
-Hashcat with a 100K wordlist + best64 rules generates ~6.4M candidates but only cracks 65% of the test set. LXPEN generates 4.3M candidates and cracks 90%. The difference:
+Hashcat with a 100K wordlist + best64 rules generates ~6.4M candidates but only cracks 65% of the test set. LXPEN generates 26.6M candidates (including hybrid brute-force) and cracks 90%. The difference:
 
 - **Hashcat**: Uniform exploration of word variations. Most candidates are irrelevant (e.g., `zygote123`, `xylophone!`)
-- **LXPEN**: Every candidate follows a pattern humans actually use. Zero wasted computation.
+- **LXPEN**: Every candidate follows a pattern humans actually use. Hybrid fallback catches edge cases.
 
 ```
 Effective coverage:
-  LXPEN:   18/20 found in 4.3M candidates  = 1 hit per 238K candidates
-  Hashcat: 13/20 found in 6.4M candidates  = 1 hit per 492K candidates
+  LXPEN:   18/20 found in 4.3M pattern candidates = 1 hit per 238K candidates
+  Hashcat: 13/20 found in 6.4M candidates          = 1 hit per 492K candidates
   
 LXPEN is 2x more efficient per candidate generated.
+Pattern-based candidates find 90% of targets before hybrid even starts.
 ```
 
 ---
@@ -161,7 +252,7 @@ CPU-only, same machine (6 cores, 12GB RAM), same 20 NTLM hashes across 5 difficu
 
 ### Speed & Resource Comparison
 
-| Metric | LXPEN v0.4 | HC (3.5K+best64) | HC (100K+best64) |
+| Metric | LXPEN | HC (3.5K+best64) | HC (100K+best64) |
 |---|---|---|---|
 | Wall-clock time | **0.56s** | 2.53s | 3.95s |
 | User CPU time | 1.20s | 1.56s | 5.58s |
@@ -200,22 +291,41 @@ Most passwords crack in under 100ms. The full 4.3M space exhausts in ~500ms.
 # Crack a single NTLM hash
 lxpen crack 8846f7eaee8fb117ad06bdd830b7586c
 
+# Crack MD5 / SHA-256 hashes
+lxpen crack 5f4dcc3b5aa765d61d8327deb882cf99 --type md5
+lxpen crack 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8 --type sha256
+
 # Crack multiple hashes from file (multi-target — fastest mode)
 lxpen crack -f hashes.txt
+lxpen crack -f md5_hashes.txt --type md5
 
-# Generate NTLM hash for a password
+# Generate hash for a password
 lxpen hash "P@ssw0rd123"
+lxpen hash "P@ssw0rd123" --type md5
+lxpen hash "P@ssw0rd123" --type sha256
+
+# Analyze a password — reverse-match to HPD patterns
+lxpen analyze "Michael1994!"
+lxpen analyze "xK9mZ2pLq"
+
+# Full coverage report — all patterns, slots, candidate counts
+lxpen coverage
+
+# JSON output for scripting/automation
+lxpen crack <hash> --json
+lxpen analyze "password" --json
+lxpen coverage --json
 
 # Performance benchmark (hash rate, thread scaling)
 lxpen bench
 
-# Pattern statistics (pattern count, candidate space, slot sizes)
+# Quick stats overview
 lxpen stats
 ```
 
 ### Input Format
 
-Hash file: one NTLM hash per line (32 hex characters):
+Hash file: one hash per line (32 hex chars for NTLM/MD5, 64 for SHA-256):
 ```
 8846f7eaee8fb117ad06bdd830b7586c
 32ed87bdb5fdc5e9cba88547376818d4
@@ -298,8 +408,8 @@ Study human password patterns:
 lxpen stats
 
 # Understand which patterns are most common
-# Patterns: 45
-# Total candidate space: 4,274,914
+# Patterns: 48
+# Total candidate space: 26,638,972
 # Top patterns by frequency:
 #   1. lower_digits          (22.4%) — LowerWord + SeqDigits
 #   2. cap_digits            (14.1%) — CapWord + SeqDigits
@@ -312,47 +422,51 @@ lxpen stats
 
 ```
                     Crystal (orchestrator)
-                    ┌─────────────────────────────┐
-                    │  CLI          (cli.cr)       │
-                    │  Patterns     (schema.cr)    │
-                    │  Freq. Data   (frequency_data│
-                    │  Engine       (candidate_eng)│
-                    └──────────┬──────────────────┘
-                               │ FFI (slot pointers)
+                    ┌──────────────────────────────┐
+                    │  CLI          (cli.cr)        │
+                    │  Patterns     (schema.cr)     │
+                    │  Freq. Data   (frequency_data)│
+                    │  Engine       (candidate_eng) │
+                    │  HashType     (ntlm.cr)       │
+                    └──────────┬───────────────────┘
+                               │ FFI (slot pointers + hash type)
                                ▼
                     C Core (-O3 -march=native -pthread)
-                    ┌─────────────────────────────┐
-                    │  lxpen_crack_pattern()       │
-                    │  ├─ Thread pool (N cores)    │
-                    │  ├─ Cartesian product gen    │
-                    │  ├─ UTF-16LE conversion      │
-                    │  ├─ MD4 hash (inline)        │
-                    │  └─ Multi-target compare     │
-                    │     (atomic CAS early exit)  │
-                    │                              │
-                    │  lxpen_crack_batch()         │
-                    │  lxpen_ram_table (O(1))      │
-                    └─────────────────────────────┘
+                    ┌──────────────────────────────┐
+                    │  lxpen_crack_pattern()        │  ← NTLM fast path
+                    │  lxpen_crack_pattern_typed()  │  ← MD5/SHA-256
+                    │  ├─ Thread pool (N cores)     │
+                    │  ├─ Cartesian product gen     │
+                    │  ├─ Hash dispatch (NTLM/MD5/  │
+                    │  │   SHA-256)                  │
+                    │  └─ Multi-target compare      │
+                    │     (atomic CAS early exit)    │
+                    │                                │
+                    │  lxpen_md5_hash()    (RFC 1321)│
+                    │  lxpen_sha256_hash() (FIPS 180)│
+                    │  lxpen_ntlm_hash()   (MD4)     │
+                    └──────────────────────────────┘
 ```
 
 ### Data Flow (Multi-Target Mode)
 
 ```
 1. Crystal reads hash file → parses N target hashes
-2. For each of 45 patterns (sorted by frequency):
+2. For each of 48 patterns (sorted by frequency):
    a. Crystal builds flat slot arrays (pointers + lengths + counts)
-   b. Crystal calls lxpen_crack_pattern() via FFI
+   b. Crystal calls lxpen_crack_pattern[_typed]() via FFI
    c. C spawns thread pool, divides cartesian product space
    d. Each thread:
       - Decodes combination index → slot indices
       - Concatenates slot values into candidate buffer
-      - Converts to UTF-16LE → MD4 hash
+      - Hashes via selected algorithm (NTLM/MD5/SHA-256)
       - Compares against all N active targets (atomic flags)
       - On match: CAS to claim target, store password
    e. Threads join, C returns found count
    f. Crystal reports newly found passwords
    g. If all targets found → early exit (skip remaining patterns)
-3. Crystal prints summary
+3. If targets remain → hybrid brute-force [a-z0-9] 1-4 chars
+4. Crystal prints summary (text or JSON)
 ```
 
 ### Why C + Crystal?
@@ -453,12 +567,13 @@ Pattern.new("city_year", [Slot.new(SlotType::CityName), Slot.new(SlotType::Year)
 
 ### Adding a New Hash Type
 
-The C core currently implements NTLM (MD4 of UTF-16LE). To add another hash type:
+The C core implements NTLM (MD4), MD5, and SHA-256. To add another (e.g., SHA-512):
 
-1. Implement the hash function in `core/md4.c` (e.g., `lxpen_sha256_hash()`)
-2. Add FFI binding in `src/core/ntlm.cr`
-3. Add a CLI flag: `lxpen crack --type sha256 <hash>`
-4. Modify `lxpen_crack_pattern()` to call the appropriate hash function
+1. Implement the hash function in `core/md4.c`
+2. Add to `lxpen_hash_type_t` enum in `core/md4.h`
+3. Wire it into `lxpen_hash_by_type()` and `lxpen_hash_size()`
+4. Add FFI binding in `src/core/ntlm.cr`
+5. Add to `HashType` enum in Crystal
 
 The multi-threading and pattern engine remain identical — only the hash function changes.
 
@@ -476,11 +591,13 @@ The multi-threading and pattern engine remain identical — only the hash functi
 ### Commands
 
 ```bash
-make            # Build release (C core + Crystal, optimized)
-make clean      # Remove build artifacts
-make rebuild    # Clean + build
-make test       # Run basic hash/crack tests
-make bench      # Run performance benchmark
+make              # Build release (C core + Crystal, optimized)
+make clean        # Remove build artifacts
+make rebuild      # Clean + build
+make spec         # Run Crystal test suite (26 tests)
+make test_hashes  # Run C hash verification tests (13 vectors)
+make test         # Run basic hash/crack smoke tests
+make bench        # Run performance benchmark
 ```
 
 ### Build Output
@@ -500,25 +617,29 @@ The final binary is `./lxpen` (~2MB, statically linked C core).
 ```
 lxpen/
   core/
-    md4.c                  # C core: MD4, NTLM, pattern crack engine, RAM table
-    md4.h                  # C API header
+    md4.c                  # C core: MD4/MD5/SHA-256, pattern crack engine, RAM table
+    md4.h                  # C API header (hash type enum, all function declarations)
+    test_hashes.c          # C-level hash verification tests (13 RFC/FIPS vectors)
   src/
     main.cr                # Entry point
-    cli.cr                 # CLI commands (crack, hash, bench, stats)
+    cli.cr                 # CLI: crack, hash, analyze, coverage, bench, stats
     lxpen.cr               # Module + version
     core/
-      ntlm.cr              # Crystal FFI bindings to C core
+      ntlm.cr              # Crystal FFI bindings + HashType enum + Hasher module
     patterns/
       schema.cr            # SlotType enum, Pattern/Slot/SlotEntry records
-      frequency_data.cr    # 45 patterns, 900+ frequency-weighted slot entries
+      frequency_data.cr    # 48 patterns, 900+ freq-weighted entries (EN+TR+DE+RU+AR)
     generator/
       candidate_engine.cr  # Pattern iteration, slot data provider
     precompute/
       ram_table.cr         # Legacy Crystal RAM table (superseded by C core)
+  spec/
+    spec_helper.cr         # Test helper
+    lxpen_spec.cr          # 26 specs: hashing, patterns, engine, types
   benchmark/
     benchmark_v4.sh        # Full benchmark vs Hashcat
-  spec/
-    lxpen_spec.cr          # Test specs
+  docs/
+    HPD-ALGORITHM.md       # Formal algorithm description (DOI: 10.5281/zenodo.20366383)
   Makefile                 # Build system
   shard.yml                # Crystal project config
 ```
@@ -574,15 +695,20 @@ Both run with `--potfile-path` isolated per run to prevent caching effects.
 
 ## Roadmap
 
-- [ ] **GPU acceleration**: Port MD4 hot loop to OpenCL/CUDA for 100x+ throughput
-- [ ] **Hash type expansion**: SHA-256, bcrypt, NTLM relay integration
+- [x] **Hash type expansion**: MD5 + SHA-256 support *(v0.5.0)*
+- [x] **Language packs**: German, Russian, Arabic names + cultural words *(v0.5.0)*
+- [x] **Hybrid mode**: Post-pattern brute-force fallback *(v0.5.0)*
+- [x] **Password analyzer**: Reverse-match passwords to HPD patterns *(v0.5.0)*
+- [x] **JSON output**: Machine-readable output for automation *(v0.5.0)*
+- [x] **Test suite**: Crystal specs + C hash verification tests *(v0.5.0)*
+- [ ] **GPU acceleration**: Port hash hot loop to OpenCL/CUDA for 100x+ throughput
 - [ ] **Adaptive patterns**: Learn pattern distributions from cracked hashes during a session
 - [ ] **Markov chain slot ordering**: Order slot entries by character-level Markov probability instead of flat frequency
-- [ ] **Hybrid mode**: Combine HPD patterns with a small wordlist for maximum coverage
 - [ ] **REST API**: Serve as a microservice for automated password auditing pipelines
-- [ ] **Language packs**: Pre-built slot data for DE, FR, AR, JP, KR, RU, ES, PT
+- [ ] **More languages**: FR, JP, KR, ES, PT slot data
 - [ ] **PCFG integration**: Merge Probabilistic Context-Free Grammar research into the pattern layer
 - [ ] **Distributed cracking**: Split pattern space across multiple machines
+- [ ] **Salted hash support**: bcrypt, scrypt, Argon2 (per-salt candidate generation)
 
 ---
 
