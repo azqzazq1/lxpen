@@ -60,6 +60,11 @@ module Lxpen
         Pattern.new("lower_lower", [Slot.new(SlotType::LowerWord), Slot.new(SlotType::LowerWord)], 0.014),
         Pattern.new("name_name", [Slot.new(SlotType::Name), Slot.new(SlotType::Name)], 0.008),
 
+        # Passphrases (multi-word)
+        Pattern.new("lower_lower_lower", [Slot.new(SlotType::LowerWord), Slot.new(SlotType::LowerWord), Slot.new(SlotType::LowerWord)], 0.004),
+        Pattern.new("cap_cap_cap", [Slot.new(SlotType::CapWord), Slot.new(SlotType::CapWord), Slot.new(SlotType::CapWord)], 0.002),
+        Pattern.new("name_name_name", [Slot.new(SlotType::Name), Slot.new(SlotType::Name), Slot.new(SlotType::Name)], 0.001),
+
         # Name + word combos
         Pattern.new("name_lower_digits", [Slot.new(SlotType::Name), Slot.new(SlotType::LowerWord), Slot.new(SlotType::SeqDigits)], 0.006),
 
@@ -147,6 +152,19 @@ module Lxpen
         SlotEntry.new("deniz", 0.001), SlotEntry.new("bulut", 0.001),
         SlotEntry.new("melek", 0.001), SlotEntry.new("cicek", 0.001),
         SlotEntry.new("gunes", 0.001), SlotEntry.new("yagmur", 0.001),
+        # German words
+        SlotEntry.new("passwort", 0.002), SlotEntry.new("geheim", 0.001),
+        SlotEntry.new("liebe", 0.001), SlotEntry.new("schatz", 0.002),
+        SlotEntry.new("berlin", 0.001), SlotEntry.new("bayern", 0.002),
+        SlotEntry.new("dortmund", 0.001), SlotEntry.new("schalke", 0.001),
+        # Russian words (transliterated)
+        SlotEntry.new("parol", 0.002), SlotEntry.new("lyubov", 0.001),
+        SlotEntry.new("moskva", 0.001), SlotEntry.new("rossiya", 0.001),
+        SlotEntry.new("spartak", 0.002), SlotEntry.new("zenit", 0.001),
+        # Arabic words (transliterated)
+        SlotEntry.new("salam", 0.002), SlotEntry.new("habibi", 0.002),
+        SlotEntry.new("allah", 0.002), SlotEntry.new("yalla", 0.001),
+        SlotEntry.new("inshallah", 0.001), SlotEntry.new("mashallah", 0.001),
         # Tech / gaming
         SlotEntry.new("minecraft", 0.002), SlotEntry.new("fortnite", 0.002),
         SlotEntry.new("valorant", 0.002), SlotEntry.new("roblox", 0.002),
@@ -246,6 +264,24 @@ module Lxpen
         SlotEntry.new("ebru", 0.001), SlotEntry.new("ozge", 0.001),
         SlotEntry.new("pinar", 0.001), SlotEntry.new("gizem", 0.001),
         SlotEntry.new("damla", 0.001), SlotEntry.new("dilara", 0.001),
+        # German names
+        SlotEntry.new("hans", 0.003), SlotEntry.new("klaus", 0.002),
+        SlotEntry.new("wolfgang", 0.002), SlotEntry.new("petra", 0.002),
+        SlotEntry.new("heidi", 0.002), SlotEntry.new("stefan", 0.003),
+        SlotEntry.new("andreas", 0.003), SlotEntry.new("frank", 0.002),
+        SlotEntry.new("sabine", 0.002), SlotEntry.new("monika", 0.002),
+        # Russian names (transliterated)
+        SlotEntry.new("ivan", 0.004), SlotEntry.new("dmitri", 0.003),
+        SlotEntry.new("sergei", 0.003), SlotEntry.new("natasha", 0.003),
+        SlotEntry.new("olga", 0.002), SlotEntry.new("vladimir", 0.002),
+        SlotEntry.new("andrei", 0.003), SlotEntry.new("alexei", 0.002),
+        SlotEntry.new("tatiana", 0.002), SlotEntry.new("ekaterina", 0.002),
+        # Arabic names (transliterated)
+        SlotEntry.new("mohammed", 0.008), SlotEntry.new("ahmed", 0.006),
+        SlotEntry.new("omar", 0.004), SlotEntry.new("fatima", 0.004),
+        SlotEntry.new("hassan", 0.003), SlotEntry.new("hussein", 0.003),
+        SlotEntry.new("khalid", 0.002), SlotEntry.new("aisha", 0.003),
+        SlotEntry.new("maryam", 0.002),
       ]
 
       YEARS = [

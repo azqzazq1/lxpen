@@ -9,7 +9,7 @@ CORE_LIB = core/liblxpen_core.a
 
 TARGET = lxpen
 
-.PHONY: all clean rebuild test bench
+.PHONY: all clean rebuild test bench test_hashes spec
 
 all: $(TARGET)
 
@@ -23,7 +23,7 @@ $(TARGET): $(CORE_LIB) src/main.cr src/cli.cr src/core/ntlm.cr src/patterns/*.cr
 	$(CRYSTAL) build $(CRYSTAL_FLAGS) src/main.cr -o $(TARGET)
 
 clean:
-	rm -f $(TARGET) $(CORE_OBJ) $(CORE_LIB) core/test_core
+	rm -f $(TARGET) $(CORE_OBJ) $(CORE_LIB) core/test_core core/test_hashes
 
 rebuild: clean all
 
@@ -40,3 +40,10 @@ test: $(TARGET)
 
 bench: $(TARGET)
 	./$(TARGET) bench
+
+spec: $(CORE_LIB)
+	$(CRYSTAL) spec
+
+test_hashes: core/test_hashes.c $(CORE_SRC) core/md4.h
+	$(CC) $(CFLAGS) core/test_hashes.c $(CORE_SRC) -o core/test_hashes
+	./core/test_hashes

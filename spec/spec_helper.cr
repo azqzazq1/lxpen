@@ -1,2 +1,5 @@
 require "spec"
-require "../src/lxpen"
+require "../src/core/ntlm"
+require "../src/patterns/schema"
+require "../src/patterns/frequency_data"
+require "../src/generator/candidate_engine"
