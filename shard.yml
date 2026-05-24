@@ -1,0 +1,17 @@
+name: lxpen
+version: 0.4.0
+
+authors:
+  - Azizcan Dastan <past3l>
+
+description: |
+  NTLM hash cracker using Hierarchical Probabilistic Decomposition (HPD).
+  No wordlists, no OSINT — pure algorithmic pattern-based cracking.
+
+targets:
+  lxpen:
+    main: src/main.cr
+
+crystal: '>= 1.19.1'
+
+license: MIT

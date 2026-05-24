@@ -1,0 +1,14 @@
+/docs/
+/lib/
+/bin/
+/.shards/
+*.dwarf
+
+# Build artifacts
+lxpen
+core/*.o
+core/*.a
+
+# Benchmark temp files
+benchmark/*.txt
+benchmark/*.potfile
